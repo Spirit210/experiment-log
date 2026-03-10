@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Experiment Log</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;--border:#2a2a38;
+  --text:#e8e8ef;--text2:#8888a0;--text3:#55556a;
+  --accent:#6c5ce7;--accent2:#a29bfe;--green:#00b894;--green2:#55efc4;
+  --red:#e17055;--blue:#0984e3;--orange:#fdcb6e;
+  --radius:14px;--radius-sm:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden}
+.app{max-width:500px;margin:0 auto;padding:0 16px 100px}
+
+.setup-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;padding:24px}
+.setup-card{width:100%;max-width:400px;text-align:center}
+.setup-icon{font-size:56px;margin-bottom:16px}
+.setup-title{font-size:22px;font-weight:800;margin-bottom:6px}
+.setup-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.5}
+.setup-key-display{background:var(--surface);border:2px dashed var(--accent);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.setup-key-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:6px}
+.setup-key-value{font-size:28px;font-weight:800;letter-spacing:4px;color:var(--accent2);font-family:monospace;word-break:break-all;-webkit-user-select:all;user-select:all}
+.setup-btn{width:100%;padding:16px;border:none;border-radius:var(--radius);font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;transition:transform .15s}
+.setup-btn:active{transform:scale(.97)}
+.setup-btn.primary{background:var(--accent);color:#fff;box-shadow:0 4px 16px rgba(108,92,231,.3)}
+.setup-btn.secondary{background:var(--surface);color:var(--text2);border:1px solid var(--border)}
+.setup-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-size:12px}
+.setup-divider::before,.setup-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.setup-input{width:100%;padding:14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:18px;font-family:monospace;color:var(--text);text-align:center;letter-spacing:3px;outline:none;margin-bottom:8px}
+.setup-input:focus{border-color:var(--accent)}
+.setup-input::placeholder{font-size:13px;letter-spacing:0;font-family:inherit;color:var(--text3)}
+.setup-note{font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5}
+
+.app-header{position:sticky;top:0;z-index:50;background:rgba(15,15,19,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:16px 0 12px;border-bottom:1px solid var(--border);margin:0 -16px;padding-left:16px;padding-right:16px}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.app-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.app-title span{color:var(--accent2)}
+.header-stats{display:flex;gap:6px;align-items:center}
+.stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:4px}
+.stat-pill .num{color:var(--accent2);font-weight:800}
+.sync-indicator{display:flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
+.sync-indicator:hover{border-color:var(--accent)}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sync-dot.online{background:#00b894;box-shadow:0 0 6px rgba(0,184,148,.5)}
+.sync-dot.syncing{background:#fdcb6e;box-shadow:0 0 6px rgba(253,203,110,.5);animation:pulse 1s infinite}
+.sync-dot.offline{background:#e17055;box-shadow:0 0 6px rgba(225,112,85,.5)}
+.sync-dot.local{background:#636e72}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-label{color:var(--text3)}
+
+.tab-bar{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-sm);padding:3px}
+.tab-btn{flex:1;padding:8px;border:none;background:transparent;color:var(--text3);font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;transition:all .2s;font-family:inherit}
+.tab-btn:hover{color:var(--text2)}
+.tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 12px rgba(108,92,231,.3)}
+.view{display:none;padding-top:16px}
+.view.active{display:block}
+
+.phase-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.phase-label{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.8px;color:#fff}
+.phase-label .badge{font-size:9px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:8px;font-weight:600;letter-spacing:.5px;margin-left:auto;text-transform:none}
+.phase-label.p1{background:linear-gradient(135deg,#2d3436,#444)}
+.phase-label.p2{background:linear-gradient(135deg,#2c3e7a,#4a6fa5)}
+.phase-label.p3{background:linear-gradient(135deg,#1e8a5c,#00b894)}
+.phase-body{padding:14px}
+
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field-label{font-size:14px;font-weight:700;margin-bottom:2px;color:var(--text);line-height:1.3}
+.field-hint{font-size:12px;color:var(--text3);margin-bottom:6px;line-height:1.3;font-style:italic}
+.field textarea{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:15px;font-family:inherit;color:var(--text);resize:none;outline:none;transition:border-color .2s;line-height:1.5}
+.field textarea:focus{border-color:var(--accent)}
+.field textarea::placeholder{color:var(--text3);font-size:13px}
+
+.scale-group{display:flex;gap:12px;flex-wrap:wrap}
+.scale-item{flex:1;min-width:140px}
+.scale-item-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.scale-input-row{display:flex;align-items:center;gap:4px}
+.scale-input-row input[type="range"]{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:var(--border);border-radius:3px;outline:none;cursor:pointer}
+.scale-input-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(108,92,231,.4)}
+.scale-value{min-width:44px;text-align:center;font-size:20px;font-weight:800;color:var(--accent2)}
+.scale-endpoints{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;padding:0 2px}
+
+.crutch-list{display:flex;flex-direction:column;gap:6px}
+.crutch-item{display:flex;align-items:center;gap:8px}
+.crutch-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;font-size:12px;color:transparent}
+.crutch-check:hover{border-color:var(--accent)}
+.crutch-check.checked{background:var(--accent);border-color:var(--accent);color:#fff}
+.crutch-item input[type="text"]{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--text);outline:none;transition:border-color .2s}
+.crutch-item input[type="text"]:focus{border-color:var(--accent)}
+.crutch-item input[type="text"]::placeholder{color:var(--text3);font-size:12px}
+
+.action-tips{display:flex;flex-direction:column;gap:8px}
+.action-tip{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);line-height:1.45}
+.action-tip .icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.action-tip strong{color:var(--text)}
+.action-tip em{color:var(--accent2);font-style:normal;font-weight:600}
+
+.motivation-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+.motivation-bar .field-label{font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.motivation-bar textarea{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-size:14px;font-family:inherit;color:var(--text);resize:none;outline:none;transition:border-color .2s}
+.motivation-bar textarea:focus{border-color:var(--accent)}
+.motivation-bar textarea::placeholder{color:var(--text3);font-size:12px}
+
+.save-btn{width:100%;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .2s;font-family:inherit;margin-top:8px;box-shadow:0 4px 16px rgba(108,92,231,.3)}
+.save-btn:hover{box-shadow:0 6px 20px rgba(108,92,231,.5)}
+.save-btn:active{transform:scale(.97)}
+.phase-toggle{width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:all .2s;font-family:inherit;margin-top:8px;box-shadow:0 4px 16px rgba(0,184,148,.3);display:flex;align-items:center;justify-content:center;gap:8px}
+.phase-toggle:hover{box-shadow:0 6px 20px rgba(0,184,148,.5)}
+.phase-toggle:active{transform:scale(.97)}
+.hidden{display:none !important}
+
+.history-empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.history-empty .icon{font-size:48px;margin-bottom:12px;opacity:.5}
+.history-empty p{font-size:15px;line-height:1.5}
+.history-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;cursor:pointer;transition:border-color .2s}
+.history-card:hover{border-color:var(--accent)}
+.history-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.history-num{background:var(--accent);color:#fff;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.history-meta{flex:1;min-width:0}
+.history-situation{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.history-date{font-size:11px;color:var(--text3);margin-top:1px}
+.history-card-body{padding:10px 14px;display:flex;gap:12px}
+.history-metric{flex:1;text-align:center}
+.history-metric-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700;margin-bottom:4px}
+.history-metric-values{display:flex;align-items:center;justify-content:center;gap:4px;font-size:16px;font-weight:800}
+.val-before{color:var(--red)}.val-arrow{color:var(--text3);font-size:12px}.val-after{color:var(--green)}
+.history-delete{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;transition:all .15s}
+.history-delete:hover{color:var(--red);background:rgba(225,112,85,.1)}
+.history-detail{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.history-detail.open{display:block}
+.detail-section{margin-top:10px}
+.detail-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700;margin-bottom:3px}
+.detail-text{font-size:13px;color:var(--text2);line-height:1.5}
+
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px}
+.insight-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.chart-container{position:relative;width:100%;height:160px}
+.chart-canvas{width:100%;height:100%}
+.big-number{font-size:48px;font-weight:800;color:var(--accent2);line-height:1;margin-bottom:4px}
+.big-label{font-size:13px;color:var(--text3)}
+.insight-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.insight-stat{text-align:center;padding:12px;background:var(--surface2);border-radius:var(--radius-sm)}
+.insight-stat .num{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px}
+.insight-stat .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.color-green{color:var(--green2)}.color-red{color:var(--red)}.color-accent{color:var(--accent2)}.color-blue{color:var(--blue)}.color-orange{color:var(--orange)}
+
+.sync-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px}
+.sync-panel-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.sync-key-box{background:var(--surface2);border:1.5px dashed var(--accent);border-radius:var(--radius-sm);padding:12px;text-align:center;margin-bottom:12px}
+.sync-key-box .label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:4px}
+.sync-key-box .key{font-size:22px;font-weight:800;color:var(--accent2);font-family:monospace;letter-spacing:3px;-webkit-user-select:all;user-select:all}
+.sync-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sync-action-btn{flex:1;min-width:100px;padding:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center}
+.sync-action-btn:hover{border-color:var(--accent);color:var(--text)}
+.sync-action-btn:active{transform:scale(.97)}
+
+.danger-zone{margin-top:20px;text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.clear-btn{background:none;border:1px solid var(--border);color:var(--text3);padding:10px 20px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.clear-btn:hover{border-color:var(--red);color:var(--red)}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--green);color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;z-index:200;transition:transform .35s cubic-bezier(.175,.885,.32,1.275);box-shadow:0 6px 24px rgba(0,0,0,.3);pointer-events:none;max-width:90%;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="setup-overlay" id="setupScreen">
+<div class="setup-card">
+  <div class="setup-icon">🧠</div>
+  <div class="setup-title">Experiment Log</div>
+  <div class="setup-sub">Your sync key connects all your devices.<br>Same key = same data everywhere.</div>
+  <div class="setup-key-display">
+    <div class="setup-key-label">Your New Sync Key</div>
+    <div class="setup-key-value" id="generatedKey"></div>
+  </div>
+  <button class="setup-btn primary" onclick="useNewKey()">✅ Use This Key &amp; Start</button>
+  <div class="setup-divider">or connect to another device</div>
+  <input class="setup-input" id="existingKeyInput" type="text" placeholder="enter key from other device" maxlength="20" autocomplete="off" spellcheck="false">
+  <button class="setup-btn secondary" onclick="useExistingKey()">🔗 Connect to Existing Key</button>
+  <div class="setup-note">⚠️ Write this key down. You need it to connect your phone.</div>
+</div>
+</div>
+
+<div class="app hidden" id="mainApp">
+<div class="app-header">
+  <div class="header-top">
+    <div class="app-title">🧠 <span>Experiment</span> Log</div>
+    <div class="header-stats">
+      <div class="stat-pill"><span class="num" id="totalCount">0</span> logged</div>
+      <div class="sync-indicator" onclick="manualSync()">
+        <div class="sync-dot local" id="syncDot"></div>
+        <span class="sync-label" id="syncStatus">local</span>
+      </div>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="new">＋ New</button>
+    <button class="tab-btn" data-tab="history">📋 History</button>
+    <button class="tab-btn" data-tab="insights">📊 Insights</button>
+  </div>
+</div>
+
+<div class="view active" id="view-new">
+  <div class="motivation-bar">
+    <div class="field-label">🎯 What I'd lose if I avoid this</div>
+    <textarea id="motivation" rows="1" placeholder="Name the cost of not acting..."></textarea>
+  </div>
+  <div class="phase-card">
+    <div class="phase-label p1"><span>① Before</span><span class="badge">Fill before acting</span></div>
+    <div class="phase-body">
+      <div class="field">
+        <div class="field-label">What am I about to do?</div>
+        <textarea id="situation" rows="2" placeholder="Be specific about the action..."></textarea>
+      </div>
+      <div class="field">
+        <div class="field-label">My brain's prediction</div>
+        <div class="field-hint">What does it say will go wrong?</div>
+        <textarea id="prediction" rows="2" placeholder="My brain is telling me that..."></textarea>
+      </div>
+      <div class="field">
+        <div class="field-label">Rate before you begin</div>
+        <div class="scale-group">
+          <div class="scale-item">
+            <div class="scale-item-label">Belief strength</div>
+            <div class="scale-input-row">
+              <input type="range" id="beliefBefore" min="0" max="100" value="50" oninput="document.getElementById('beliefBeforeVal').textContent=this.value">
+              <div class="scale-value" id="beliefBeforeVal">50</div>
+            </div>
+            <div class="scale-endpoints"><span>Don't believe it</span><span>100% certain</span></div>
+          </div>
+          <div class="scale-item">
+            <div class="scale-item-label">Expected distress</div>
+            <div class="scale-input-row">
+              <input type="range" id="distressBefore" min="0" max="100" value="50" oninput="document.getElementById('distressBeforeVal').textContent=this.value">
+              <div class="scale-value" id="distressBeforeVal">50</div>
+            </div>
+            <div class="scale-endpoints"><span>Calm</span><span>Worst panic</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">Crutches I won't use</div>
+        <div class="field-hint">Safety behaviors to drop this time</div>
+        <div class="crutch-list">
+          <div class="crutch-item">
+            <div class="crutch-check" onclick="this.classList.toggle('checked')">✓</div>
+            <input type="text" id="crutch1" placeholder="e.g., Over-apologizing">
+          </div>
+          <div class="crutch-item">
+            <div class="crutch-check" onclick="this.classList.toggle('checked')">✓</div>
+            <input type="text" id="crutch2" placeholder="e.g., Checking my phone">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="phase-card">
+    <div class="phase-label p2"><span>② During</span><span class="badge">Do the thing</span></div>
+    <div class="phase-body">
+      <div class="action-tips">
+        <div class="action-tip"><span class="icon">🎯</span><span>Goal is <strong>NOT</strong> to feel calm — it's to see <em>if your prediction comes true</em></span></div>
+        <div class="action-tip"><span class="icon">🛡️</span><span>Drop the crutches — <strong>feel it fully</strong></span></div>
+        <div class="action-tip"><span class="icon">🏷️</span><span>Label it: <em>"I feel anxious and that's okay"</em></span></div>
+      </div>
+    </div>
+  </div>
+  <button class="phase-toggle" id="showPhase3" onclick="revealPhase3()">✅ I did it — show Phase 3</button>
+  <div id="phase3wrapper" class="hidden">
+    <div class="phase-card" style="margin-top:12px">
+      <div class="phase-label p3"><span>③ After</span><span class="badge">Fill immediately</span></div>
+      <div class="phase-body">
+        <div class="field">
+          <div class="field-label">What actually happened?</div>
+          <div class="field-hint">Objective facts — did the prediction come true?</div>
+          <textarea id="outcome" rows="2" placeholder="What I observed..."></textarea>
+        </div>
+        <div class="field">
+          <div class="field-label">Rate after the experiment</div>
+          <div class="scale-group">
+            <div class="scale-item">
+              <div class="scale-item-label">Belief NOW</div>
+              <div class="scale-input-row">
+                <input type="range" id="beliefAfter" min="0" max="100" value="50" oninput="document.getElementById('beliefAfterVal').textContent=this.value">
+                <div class="scale-value" id="beliefAfterVal">50</div>
+              </div>
+              <div class="scale-endpoints"><span>Don't believe it</span><span>100% certain</span></div>
+            </div>
+            <div class="scale-item">
+              <div class="scale-item-label">Actual distress</div>
+              <div class="scale-input-row">
+                <input type="range" id="distressAfter" min="0" max="100" value="50" oninput="document.getElementById('distressAfterVal').textContent=this.value">
+                <div class="scale-value" id="distressAfterVal">50</div>
+              </div>
+              <div class="scale-endpoints"><span>Calm</span><span>Worst panic</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">What I learned about the situation</div>
+          <div class="field-hint">What new rule can I teach my brain?</div>
+          <textarea id="learnSituation" rows="2" placeholder='e.g., "People did not judge me"'></textarea>
+        </div>
+        <div class="field">
+          <div class="field-label">What I learned about my ability to cope</div>
+          <div class="field-hint">Even if it was hard — what can I handle?</div>
+          <textarea id="learnCoping" rows="2" placeholder='e.g., "I felt shaky but survived"'></textarea>
+        </div>
+        <div class="field">
+          <div class="field-label">Next experiment</div>
+          <div class="field-hint">Different place, time, or way to test again</div>
+          <textarea id="nextExperiment" rows="1" placeholder="How I will test differently next time..."></textarea>
+        </div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveExperiment()">💾 Save Experiment</button>
+  </div>
+</div>
+
+<div class="view" id="view-history"><div id="historyList"></div></div>
+<div class="view" id="view-insights"><div id="insightsContent"></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// 🔥 YOUR FIREBASE CONFIG — REPLACE BELOW
+// ═══════════════════════════════════════
+var firebaseConfig = {
+  apiKey: "AIzaSyDU1DUclGiKf0gdLivhJoAM16MsAZwnrBA",
+  authDomain: "experiment-log.firebaseapp.com",
+  projectId: "experiment-log",
+  storageBucket: "experiment-log.firebasestorage.app",
+  messagingSenderId: "958994987450",
+  appId: "1:958994987450:web:896c4e0a2e4aaed7a3c583"
+};
+// ═══════════════════════════════════════
+
+var db=null,firebaseReady=false;
+try{if(firebaseConfig.apiKey!=="AIzaSyDU1DUclGiKf0gdLivhJoAM16MsAZwnrBA"){firebase.initializeApp(firebaseConfig);db=firebase.firestore();firebaseReady=true;}}catch(e){console.log('Firebase init error',e);}
+
+var syncKey=localStorage.getItem('il_syncKey');
+
+function genKey(){var c='abcdefghjkmnpqrstuvwxyz23456789',k='';for(var i=0;i<4;i++)k+=c[Math.floor(Math.random()*c.length)];k+='-';for(var i=0;i<4;i++)k+=c[Math.floor(Math.random()*c.length)];return k;}
+
+function initSetup(){if(syncKey){document.getElementById('setupScreen').classList.add('hidden');document.getElementById('mainApp').classList.remove('hidden');bootApp();}else{var k=genKey();document.getElementById('generatedKey').textContent=k;document.getElementById('generatedKey').setAttribute('data-key',k);}}
+
+function useNewKey(){syncKey=document.getElementById('generatedKey').getAttribute('data-key');localStorage.setItem('il_syncKey',syncKey);document.getElementById('setupScreen').classList.add('hidden');document.getElementById('mainApp').classList.remove('hidden');bootApp();showToast('✅ Key saved: '+syncKey);}
+
+function useExistingKey(){var v=document.getElementById('existingKeyInput').value.trim().toLowerCase();if(!v||v.length<4){showToast('⚠️ Enter a valid key');return;}syncKey=v;localStorage.setItem('il_syncKey',syncKey);document.getElementById('setupScreen').classList.add('hidden');document.getElementById('mainApp').classList.remove('hidden');bootApp();pullFromCloud().then(function(){showToast('✅ Connected! Data loaded.');updateCount();renderHistory();renderInsights();});}
+
+function bootApp(){updateCount();if(firebaseReady){setSync('syncing');pullFromCloud().then(function(){setSync('online');updateCount();}).catch(function(){setSync('offline');});}else{setSync('local');}}
+
+function setSync(s){document.getElementById('syncDot').className='sync-dot '+s;document.getElementById('syncStatus').textContent=s;}
+
+function pushToCloud(exps){if(!firebaseReady||!syncKey)return Promise.resolve();setSync('syncing');return db.collection('logs').doc(syncKey).set({experiments:exps,updatedAt:new Date().toISOString()}).then(function(){setSync('online');}).catch(function(){setSync('offline');});}
+
+function pullFromCloud(){if(!firebaseReady||!syncKey)return Promise.resolve();return db.collection('logs').doc(syncKey).get().then(function(doc){if(doc.exists){var ce=doc.data().experiments||[],le=getExps(),me=mergeExps(le,ce);localStorage.setItem('ilExperiments',JSON.stringify(me));if(me.length!==ce.length)return pushToCloud(me);}else{var le=getExps();if(le.length>0)return pushToCloud(le);}});}
+
+function mergeExps(a,b){var m=a.slice(),ids={};for(var i=0;i<a.length;i++)ids[a[i].id]=1;for(var i=0;i<b.length;i++)if(!ids[b[i].id])m.push(b[i]);m.sort(function(x,y){return x.id-y.id});return m;}
+
+function manualSync(){if(!firebaseReady){showToast('☁️ Cloud not configured');return;}setSync('syncing');pullFromCloud().then(function(){setSync('online');showToast('✅ Synced!');updateCount();}).catch(function(){setSync('offline');showToast('❌ Sync failed');});}
+
+var tabs=document.querySelectorAll('.tab-btn');
+for(var i=0;i<tabs.length;i++)tabs[i].addEventListener('click',function(){for(var j=0;j<tabs.length;j++)tabs[j].classList.remove('active');var vs=document.querySelectorAll('.view');for(var j=0;j<vs.length;j++)vs[j].classList.remove('active');this.classList.add('active');document.getElementById('view-'+this.getAttribute('data-tab')).classList.add('active');if(this.getAttribute('data-tab')==='history')renderHistory();if(this.getAttribute('data-tab')==='insights')renderInsights();});
+
+function revealPhase3(){document.getElementById('phase3wrapper').classList.remove('hidden');document.getElementById('showPhase3').classList.add('hidden');document.getElementById('phase3wrapper').scrollIntoView({behavior:'smooth',block:'start'});}
+
+function getExps(){try{return JSON.parse(localStorage.getItem('ilExperiments')||'[]');}catch(e){return[];}}
+function updateCount(){document.getElementById('totalCount').textContent=getExps().length;}
+
+function saveExperiment(){
+  var e={id:Date.now(),date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),time:new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),motivation:gv('motivation'),situation:gv('situation'),prediction:gv('prediction'),beliefBefore:gi('beliefBefore'),distressBefore:gi('distressBefore'),crutch1:gv('crutch1'),crutch2:gv('crutch2'),outcome:gv('outcome'),beliefAfter:gi('beliefAfter'),distressAfter:gi('distressAfter'),learnSituation:gv('learnSituation'),learnCoping:gv('learnCoping'),nextExperiment:gv('nextExperiment')};
+  if(!e.situation||!e.prediction){showToast('⚠️ Fill situation & prediction');return;}
+  var all=getExps();all.push(e);localStorage.setItem('ilExperiments',JSON.stringify(all));updateCount();pushToCloud(all);
+  var fs=['motivation','situation','prediction','outcome','learnSituation','learnCoping','nextExperiment'];for(var i=0;i<fs.length;i++)document.getElementById(fs[i]).value='';
+  document.getElementById('crutch1').value='';document.getElementById('crutch2').value='';
+  var sl=['beliefBefore','distressBefore','beliefAfter','distressAfter'];for(var i=0;i<sl.length;i++){document.getElementById(sl[i]).value=50;document.getElementById(sl[i]+'Val').textContent='50';}
+  var ch=document.querySelectorAll('.crutch-check');for(var i=0;i<ch.length;i++)ch[i].classList.remove('checked');
+  document.getElementById('phase3wrapper').classList.add('hidden');document.getElementById('showPhase3').classList.remove('hidden');
+  showToast('✅ Experiment #'+all.length+' saved!');window.scrollTo({top:0,behavior:'smooth'});
+}
+function gv(id){return document.getElementById(id).value.trim();}
+function gi(id){return parseInt(document.getElementById(id).value);}
+
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
+
+function renderHistory(){
+  var all=getExps().slice().reverse(),c=document.getElementById('historyList');
+  if(!all.length){c.innerHTML='<div class="history-empty"><div class="icon">📭</div><p>No experiments yet.<br>Complete your first one.</p></div>';return;}
+  var h='';for(var i=0;i<all.length;i++){var e=all[i],n=all.length-i;
+  h+='<div class="history-card" onclick="toggleDet('+e.id+')">';
+  h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+'</div><div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
+  h+='<div class="history-card-body"><div class="history-metric"><div class="history-metric-label">Belief</div><div class="history-metric-values"><span class="val-before">'+e.beliefBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.beliefAfter+'</span></div></div><div class="history-metric"><div class="history-metric-label">Distress</div><div class="history-metric-values"><span class="val-before">'+e.distressBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.distressAfter+'</span></div></div></div>';
+  h+='<div class="history-detail" id="det-'+e.id+'">';
+  if(e.motivation)h+='<div class="detail-section"><div class="detail-label">Cost of avoiding</div><div class="detail-text">'+esc(e.motivation)+'</div></div>';
+  if(e.prediction)h+='<div class="detail-section"><div class="detail-label">Prediction</div><div class="detail-text">'+esc(e.prediction)+'</div></div>';
+  if(e.outcome)h+='<div class="detail-section"><div class="detail-label">What happened</div><div class="detail-text">'+esc(e.outcome)+'</div></div>';
+  if(e.learnSituation)h+='<div class="detail-section"><div class="detail-label">Learned (situation)</div><div class="detail-text">'+esc(e.learnSituation)+'</div></div>';
+  if(e.learnCoping)h+='<div class="detail-section"><div class="detail-label">Learned (coping)</div><div class="detail-text">'+esc(e.learnCoping)+'</div></div>';
+  if(e.nextExperiment)h+='<div class="detail-section"><div class="detail-label">Next experiment</div><div class="detail-text">'+esc(e.nextExperiment)+'</div></div>';
+  h+='</div></div>';}c.innerHTML=h;
+}
+function toggleDet(id){var el=document.getElementById('det-'+id);if(el)el.classList.toggle('open');}
+function delExp(id){if(!confirm('Delete this experiment?'))return;var a=getExps().filter(function(e){return e.id!==id;});localStorage.setItem('ilExperiments',JSON.stringify(a));pushToCloud(a);updateCount();renderHistory();}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function renderInsights(){
+  var all=getExps(),c=document.getElementById('insightsContent');
+  if(!all.length){c.innerHTML='<div class="history-empty"><div class="icon">📊</div><p>Complete experiments to see insights.</p></div>';return;}
+  var t=all.length,sb=0,sa=0,db2=0,da=0,pw=0;
+  for(var i=0;i<t;i++){sb+=all[i].beliefBefore;sa+=all[i].beliefAfter;db2+=all[i].distressBefore;da+=all[i].distressAfter;if(all[i].beliefAfter<all[i].beliefBefore)pw++;}
+  var ab=Math.round(sb/t),aa=Math.round(sa/t),adb=Math.round(db2/t),ada=Math.round(da/t),pct=Math.round((pw/t)*100);
+  var h='<div class="insight-card" style="text-align:center"><div class="big-number">'+pct+'%</div><div class="big-label">of your brain\'s predictions were <strong>wrong</strong></div></div>';
+  h+='<div class="insight-grid"><div class="insight-stat"><div class="num color-accent">'+t+'</div><div class="lbl">Experiments</div></div><div class="insight-stat"><div class="num color-green">−'+(ab-aa)+'</div><div class="lbl">Avg Belief Drop</div></div><div class="insight-stat"><div class="num color-blue">−'+(adb-ada)+'</div><div class="lbl">Avg Distress Drop</div></div><div class="insight-stat"><div class="num color-orange">'+pw+'/'+t+'</div><div class="lbl">Predictions Wrong</div></div></div>';
+  h+='<div class="insight-card" style="margin-top:10px"><div class="insight-title">📉 Belief After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="bChart"></canvas></div></div>';
+  h+='<div class="insight-card"><div class="insight-title">📉 Distress After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="dChart"></canvas></div></div>';
+  h+='<div class="sync-panel"><div class="sync-panel-title">🔗 Sync Settings</div><div class="sync-key-box"><div class="label">Your Sync Key</div><div class="key">'+(syncKey||'none')+'</div></div><div class="sync-actions"><button class="sync-action-btn" onclick="cpKey()">📋 Copy Key</button><button class="sync-action-btn" onclick="manualSync()">🔄 Sync Now</button><button class="sync-action-btn" onclick="expData()">📤 Export</button><button class="sync-action-btn" onclick="impData()">📦 Import</button></div></div>';
+  h+='<div class="danger-zone"><button class="clear-btn" onclick="rstKey()">🔑 Change Key</button><button class="clear-btn" onclick="clrAll()">🗑️ Clear Data</button></div>';
+  c.innerHTML=h;
+  var bp=[],dp=[];for(var i=0;i<all.length;i++){bp.push(all[i].beliefAfter);dp.push(all[i].distressAfter);}
+  drw('bChart',bp,'#a29bfe','#6c5ce7');drw('dChart',dp,'#55efc4','#00b894');
+}
+
+function drw(id,data,cL,cD){
+  var cv=document.getElementById(id);if(!cv)return;var ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.scale(dpr,dpr);
+  var W=r.width,H=r.height,p={t:10,b:24,l:32,r:10},cW=W-p.l-p.r,cH=H-p.t-p.b;
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){var y=p.t+(cH/4)*i;ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(W-p.r,y);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.fillText(100-i*25,p.l-6,y+3);}
+  if(data.length<2){var x=p.l+cW/2,y2=p.t+cH*(1-data[0]/100);ctx.beginPath();ctx.arc(x,y2,6,0,Math.PI*2);ctx.fillStyle=cD;ctx.fill();return;}
+  var s=cW/(data.length-1),pts=[];for(var i=0;i<data.length;i++)pts.push({x:p.l+s*i,y:p.t+cH*(1-data[i]/100)});
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.lineTo(pts[pts.length-1].x,p.t+cH);ctx.lineTo(pts[0].x,p.t+cH);ctx.closePath();
+  var g=ctx.createLinearGradient(0,p.t,0,p.t+cH);g.addColorStop(0,cL+'30');g.addColorStop(1,cL+'05');ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.strokeStyle=cD;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
+  for(var i=0;i<pts.length;i++){ctx.beginPath();ctx.arc(pts[i].x,pts[i].y,4,0,Math.PI*2);ctx.fillStyle=cD;ctx.fill();ctx.beginPath();ctx.arc(pts[i].x,pts[i].y,2,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();}
+  ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='9px sans-serif';ctx.textAlign='center';for(var i=0;i<pts.length;i++)ctx.fillText('#'+(i+1),pts[i].x,H-4);
+}
+
+function expData(){var d=JSON.stringify({syncKey:syncKey,experiments:getExps(),exported:new Date().toISOString()});navigator.clipboard.writeText(d).then(function(){showToast('📋 Data copied!');}).catch(function(){showToast('❌ Copy failed');});}
+function impData(){var t=prompt('Paste exported data:');if(!t)return;try{var d=JSON.parse(t);if(!d.experiments)throw 0;var m=mergeExps(getExps(),d.experiments);localStorage.setItem('ilExperiments',JSON.stringify(m));pushToCloud(m);updateCount();showToast('✅ Imported '+d.experiments.length+' experiments!');}catch(e){showToast('❌ Invalid data');}}
+function cpKey(){if(!syncKey)return;navigator.clipboard.writeText(syncKey).then(function(){showToast('📋 Key: '+syncKey);});}
+function rstKey(){if(!confirm('Change sync key?'))return;localStorage.removeItem('il_syncKey');syncKey=null;location.reload();}
+function clrAll(){if(!confirm('Delete ALL experiments?'))return;localStorage.removeItem('ilExperiments');if(firebaseReady&&syncKey)db.collection('logs').doc(syncKey).delete().catch(function(){});updateCount();showToast('🗑️ Data cleared');}
+
+initSetup();
+</script>
+</body>
+</html>
