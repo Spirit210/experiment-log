@@ -345,7 +345,7 @@ var firebaseConfig = {
 // ═══════════════════════════════════════
 
 var db=null,firebaseReady=false;
-try{if(firebaseConfig.apiKey!=="AIzaSyDU1DUclGiKf0gdLivhJoAM16MsAZwnrBA"){firebase.initializeApp(firebaseConfig);db=firebase.firestore();firebaseReady=true;}}catch(e){console.log('Firebase init error',e);}
+try{if(firebaseConfig.apiKey!=="REPLACE_ME"){firebase.initializeApp(firebaseConfig);db=firebase.firestore();firebaseReady=true;}}catch(e){console.log('Firebase init error',e);}
 
 var syncKey=localStorage.getItem('il_syncKey');
 
