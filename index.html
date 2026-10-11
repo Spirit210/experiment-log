@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f13">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Experiment Log</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -96,6 +101,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .crutch-item input[type="text"]{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--text);outline:none;transition:border-color .2s}
 .crutch-item input[type="text"]:focus{border-color:var(--accent)}
 .crutch-item input[type="text"]::placeholder{color:var(--text3);font-size:12px}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chip{padding:8px 12px;border-radius:20px;background:var(--surface2);border:1.5px solid var(--border);font-size:13px;color:var(--text2);cursor:pointer;font-family:inherit}
+.chip:active{transform:scale(.94)}
+.chip.used{border-color:var(--accent);color:var(--accent2)}
+.learn-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.learn-chip{font-size:12px;font-weight:700;padding:5px 10px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.learn-chip.good{color:var(--green2);border-color:var(--green)}
+.busted{display:inline-block;font-size:11px;font-weight:800;color:#0f0f13;background:var(--green2);border-radius:12px;padding:3px 9px;margin-left:8px;vertical-align:middle}
+.draft-banner{background:linear-gradient(135deg,#2a2350,#1a1a22);border:1.5px solid var(--accent);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.db-text{font-size:13px;line-height:1.5;margin-bottom:10px}
+.db-actions{display:flex;gap:8px}
+.db-btn{flex:1;padding:10px;border-radius:10px;border:none;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.db-btn.go{background:var(--accent);color:#fff}
+.db-btn.no{background:var(--surface2);color:var(--text2)}
 
 .action-tips{display:flex;flex-direction:column;gap:8px}
 .action-tip{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);line-height:1.45}
@@ -209,21 +228,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 </div>
 
 <div class="view active" id="view-new">
+      <div id="draftBanner" class="draft-banner hidden">
+        <div class="db-text">⏳ <strong>Unfinished experiment</strong> from <span id="draftWhen"></span>.<br>Pick up where you left off — close the loop while it's fresh.</div>
+        <div class="db-actions"><button class="db-btn go" onclick="continueDraft()">Continue</button><button class="db-btn no" onclick="discardDraft()">Discard</button></div>
+      </div>
   <div class="motivation-bar">
     <div class="field-label">🎯 What I'd lose if I avoid this</div>
-    <textarea id="motivation" rows="1" placeholder="Name the cost of not acting..."></textarea>
+    <textarea id="motivation" rows="1" placeholder="Name the cost of not acting..." oninput="saveDraft()"></textarea>
   </div>
   <div class="phase-card">
     <div class="phase-label p1"><span>① Before</span><span class="badge">Fill before acting</span></div>
     <div class="phase-body">
       <div class="field">
         <div class="field-label">What am I about to do?</div>
-        <textarea id="situation" rows="2" placeholder="Be specific about the action..."></textarea>
+        <textarea id="situation" rows="2" placeholder="Be specific about the action..." oninput="saveDraft()"></textarea>
       </div>
       <div class="field">
         <div class="field-label">My brain's prediction</div>
         <div class="field-hint">What does it say will go wrong?</div>
-        <textarea id="prediction" rows="2" placeholder="My brain is telling me that..."></textarea>
+        <textarea id="prediction" rows="2" placeholder="My brain is telling me that..." oninput="saveDraft()"></textarea>
       </div>
       <div class="field">
         <div class="field-label">Rate before you begin</div>
@@ -231,7 +254,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <div class="scale-item">
             <div class="scale-item-label">Belief strength</div>
             <div class="scale-input-row">
-              <input type="range" id="beliefBefore" min="0" max="100" value="50" oninput="document.getElementById('beliefBeforeVal').textContent=this.value">
+              <input type="range" id="beliefBefore" min="0" max="100" value="50" oninput="document.getElementById('beliefBeforeVal').textContent=this.value;saveDraft()">
               <div class="scale-value" id="beliefBeforeVal">50</div>
             </div>
             <div class="scale-endpoints"><span>Don't believe it</span><span>100% certain</span></div>
@@ -239,7 +262,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <div class="scale-item">
             <div class="scale-item-label">Expected distress</div>
             <div class="scale-input-row">
-              <input type="range" id="distressBefore" min="0" max="100" value="50" oninput="document.getElementById('distressBeforeVal').textContent=this.value">
+              <input type="range" id="distressBefore" min="0" max="100" value="50" oninput="document.getElementById('distressBeforeVal').textContent=this.value;saveDraft()">
               <div class="scale-value" id="distressBeforeVal">50</div>
             </div>
             <div class="scale-endpoints"><span>Calm</span><span>Worst panic</span></div>
@@ -249,14 +272,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
       <div class="field">
         <div class="field-label">Crutches I won't use</div>
         <div class="field-hint">Safety behaviors to drop this time</div>
+        <div class="chip-row">
+          <button class="chip" onclick="fillCrutch('Rehearsing sentences',this)">Rehearsing sentences</button>
+          <button class="chip" onclick="fillCrutch('Avoiding eye contact',this)">Avoiding eye contact</button>
+          <button class="chip" onclick="fillCrutch('Monitoring my face',this)">Monitoring my face</button>
+          <button class="chip" onclick="fillCrutch('Gripping something',this)">Gripping something</button>
+          <button class="chip" onclick="fillCrutch('Over-apologizing',this)">Over-apologizing</button>
+          <button class="chip" onclick="fillCrutch('Filling silences',this)">Filling silences</button>
+          <button class="chip" onclick="fillCrutch('Talking too fast',this)">Talking too fast</button>
+          <button class="chip" onclick="fillCrutch('Checking my phone',this)">Checking my phone</button>
+        </div>
         <div class="crutch-list">
           <div class="crutch-item">
             <div class="crutch-check" onclick="this.classList.toggle('checked')">✓</div>
-            <input type="text" id="crutch1" placeholder="e.g., Over-apologizing">
+            <input type="text" id="crutch1" placeholder="e.g., Over-apologizing" oninput="saveDraft()">
           </div>
           <div class="crutch-item">
             <div class="crutch-check" onclick="this.classList.toggle('checked')">✓</div>
-            <input type="text" id="crutch2" placeholder="e.g., Checking my phone">
+            <input type="text" id="crutch2" placeholder="e.g., Checking my phone" oninput="saveDraft()">
+          </div>
+          <div class="crutch-item">
+            <div class="crutch-check" onclick="this.classList.toggle('checked')">✓</div>
+            <input type="text" id="crutch3" placeholder="e.g., Hiding my hands" oninput="saveDraft()">
           </div>
         </div>
       </div>
@@ -357,7 +394,7 @@ function useNewKey(){syncKey=document.getElementById('generatedKey').getAttribut
 
 function useExistingKey(){var v=document.getElementById('existingKeyInput').value.trim().toLowerCase();if(!v||v.length<4){showToast('⚠️ Enter a valid key');return;}syncKey=v;localStorage.setItem('il_syncKey',syncKey);document.getElementById('setupScreen').classList.add('hidden');document.getElementById('mainApp').classList.remove('hidden');bootApp();pullFromCloud().then(function(){showToast('✅ Connected! Data loaded.');updateCount();renderHistory();renderInsights();});}
 
-function bootApp(){updateCount();if(firebaseReady){setSync('syncing');pullFromCloud().then(function(){setSync('online');updateCount();}).catch(function(){setSync('offline');});}else{setSync('local');}}
+function bootApp(){updateCount();if(firebaseReady){setSync('syncing');pullFromCloud().then(function(){setSync('online');updateCount();}).catch(function(){setSync('offline');});}else{setSync('local');}maybeShowDraft();}
 
 function setSync(s){document.getElementById('syncDot').className='sync-dot '+s;document.getElementById('syncStatus').textContent=s;}
 
@@ -378,16 +415,25 @@ function getExps(){try{return JSON.parse(localStorage.getItem('ilExperiments')||
 function updateCount(){document.getElementById('totalCount').textContent=getExps().length;}
 
 function saveExperiment(){
-  var e={id:Date.now(),date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),time:new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),motivation:gv('motivation'),situation:gv('situation'),prediction:gv('prediction'),beliefBefore:gi('beliefBefore'),distressBefore:gi('distressBefore'),crutch1:gv('crutch1'),crutch2:gv('crutch2'),outcome:gv('outcome'),beliefAfter:gi('beliefAfter'),distressAfter:gi('distressAfter'),learnSituation:gv('learnSituation'),learnCoping:gv('learnCoping'),nextExperiment:gv('nextExperiment')};
+  var e={id:Date.now(),date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),time:new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}),motivation:gv('motivation'),situation:gv('situation'),prediction:gv('prediction'),beliefBefore:gi('beliefBefore'),distressBefore:gi('distressBefore'),crutch1:gv('crutch1'),crutch2:gv('crutch2'),crutch3:gv('crutch3'),outcome:gv('outcome'),beliefAfter:gi('beliefAfter'),distressAfter:gi('distressAfter'),learnSituation:gv('learnSituation'),learnCoping:gv('learnCoping'),nextExperiment:gv('nextExperiment')};
   if(!e.situation||!e.prediction){showToast('⚠️ Fill situation & prediction');return;}
-  var all=getExps();all.push(e);localStorage.setItem('ilExperiments',JSON.stringify(all));updateCount();pushToCloud(all);
+  var dc=0,chx=document.querySelectorAll('.crutch-check');for(var ci=0;ci<chx.length;ci++)if(chx[ci].classList.contains('checked'))dc++;e.dropped=dc;
+  var all=getExps();all.push(e);localStorage.setItem('ilExperiments',JSON.stringify(all));updateCount();pushToCloud(all);clearDraft();
   var fs=['motivation','situation','prediction','outcome','learnSituation','learnCoping','nextExperiment'];for(var i=0;i<fs.length;i++)document.getElementById(fs[i]).value='';
-  document.getElementById('crutch1').value='';document.getElementById('crutch2').value='';
+  document.getElementById('crutch1').value='';document.getElementById('crutch2').value='';document.getElementById('crutch3').value='';
   var sl=['beliefBefore','distressBefore','beliefAfter','distressAfter'];for(var i=0;i<sl.length;i++){document.getElementById(sl[i]).value=50;document.getElementById(sl[i]+'Val').textContent='50';}
   var ch=document.querySelectorAll('.crutch-check');for(var i=0;i<ch.length;i++)ch[i].classList.remove('checked');
+  var ups=document.querySelectorAll('.chip.used');for(var ui=0;ui<ups.length;ui++)ups[ui].classList.remove('used');
   document.getElementById('phase3wrapper').classList.add('hidden');document.getElementById('showPhase3').classList.remove('hidden');
   showToast('✅ Experiment #'+all.length+' saved!');window.scrollTo({top:0,behavior:'smooth'});
 }
+function fillCrutch(t,el){var ids=['crutch1','crutch2','crutch3'];for(var i=0;i<ids.length;i++){var inp=document.getElementById(ids[i]);if(inp&&!inp.value.trim()){inp.value=t;var chk=inp.parentElement.querySelector('.crutch-check');if(chk)chk.classList.add('checked');if(el)el.classList.add('used');saveDraft();return;}}showToast('All crutch slots are full');}
+function saveDraft(){try{var d={savedAt:Date.now(),motivation:gv('motivation'),situation:gv('situation'),prediction:gv('prediction'),beliefBefore:gi('beliefBefore'),distressBefore:gi('distressBefore'),crutch1:gv('crutch1'),crutch2:gv('crutch2'),crutch3:gv('crutch3')};if(d.situation||d.prediction)localStorage.setItem('ilDraft',JSON.stringify(d));else localStorage.removeItem('ilDraft');}catch(e){}}
+function clearDraft(){try{localStorage.removeItem('ilDraft');}catch(e){}}
+function getDraft(){try{var d=JSON.parse(localStorage.getItem('ilDraft')||'null');if(d&&d.savedAt&&(Date.now()-d.savedAt)<48*3600*1000&&(d.situation||d.prediction))return d;}catch(e){}return null;}
+function maybeShowDraft(){var d=getDraft();if(!d)return;if(gv('situation')||gv('prediction'))return;var b=document.getElementById('draftBanner');if(!b)return;var t=new Date(d.savedAt);document.getElementById('draftWhen').textContent=t.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+t.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});b.classList.remove('hidden');}
+function continueDraft(){var d=getDraft();if(!d)return;var m={motivation:'motivation',situation:'situation',prediction:'prediction',crutch1:'crutch1',crutch2:'crutch2',crutch3:'crutch3'};for(var k in m){var el=document.getElementById(m[k]);if(el)el.value=d[k]||'';}var s={beliefBefore:'beliefBefore',distressBefore:'distressBefore'};for(var k2 in s){var se=document.getElementById(k2);if(se){se.value=(d[k2]==null?50:d[k2]);document.getElementById(k2+'Val').textContent=se.value;}}var b=document.getElementById('draftBanner');if(b)b.classList.add('hidden');window.scrollTo({top:0,behavior:'smooth'});}
+function discardDraft(){clearDraft();var b=document.getElementById('draftBanner');if(b)b.classList.add('hidden');showToast('Draft discarded');}
 function gv(id){return document.getElementById(id).value.trim();}
 function gi(id){return parseInt(document.getElementById(id).value);}
 
@@ -398,12 +444,15 @@ function renderHistory(){
   if(!all.length){c.innerHTML='<div class="history-empty"><div class="icon">📭</div><p>No experiments yet.<br>Complete your first one.</p></div>';return;}
   var h='';for(var i=0;i<all.length;i++){var e=all[i],n=all.length-i;
   h+='<div class="history-card" onclick="toggleDet('+e.id+')">';
-  h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+'</div><div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
-  h+='<div class="history-card-body"><div class="history-metric"><div class="history-metric-label">Belief</div><div class="history-metric-values"><span class="val-before">'+e.beliefBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.beliefAfter+'</span></div></div><div class="history-metric"><div class="history-metric-label">Distress</div><div class="history-metric-values"><span class="val-before">'+e.distressBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.distressAfter+'</span></div></div></div>';
+  var bb=(e.beliefBefore==null?0:e.beliefBefore),ba=(e.beliefAfter==null?0:e.beliefAfter),dbf=(e.distressBefore==null?0:e.distressBefore),daf=(e.distressAfter==null?0:e.distressAfter),busted=ba<bb,learn=bb-ba,learnD=dbf-daf;
+  h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+(busted?'<span class="busted">🎯 busted</span>':'')+'</div><div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
+  h+='<div class="history-card-body"><div class="history-metric"><div class="history-metric-label">Belief</div><div class="history-metric-values"><span class="val-before">'+e.beliefBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.beliefAfter+'</span></div></div><div class="history-metric"><div class="history-metric-label">Distress</div><div class="history-metric-values"><span class="val-before">'+e.distressBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.distressAfter+'</span></div></div><div class="learn-row"><span class="learn-chip'+(learn>0?' good':'')+'">Belief '+(learn>0?'−'+learn:''+learn)+'</span><span class="learn-chip'+(learnD>0?' good':'')+'">Distress '+(learnD>0?'−'+learnD:''+learnD)+'</span></div></div>';
   h+='<div class="history-detail" id="det-'+e.id+'">';
   if(e.motivation)h+='<div class="detail-section"><div class="detail-label">Cost of avoiding</div><div class="detail-text">'+esc(e.motivation)+'</div></div>';
   if(e.prediction)h+='<div class="detail-section"><div class="detail-label">Prediction</div><div class="detail-text">'+esc(e.prediction)+'</div></div>';
   if(e.outcome)h+='<div class="detail-section"><div class="detail-label">What happened</div><div class="detail-text">'+esc(e.outcome)+'</div></div>';
+  var cl=[];if(e.crutch1)cl.push(e.crutch1);if(e.crutch2)cl.push(e.crutch2);if(e.crutch3)cl.push(e.crutch3);
+  if(cl.length)h+='<div class="detail-section"><div class="detail-label">Safety behaviors dropped'+(e.dropped?' ('+e.dropped+')':'')+'</div><div class="detail-text">'+esc(cl.join(' · '))+'</div></div>';
   if(e.learnSituation)h+='<div class="detail-section"><div class="detail-label">Learned (situation)</div><div class="detail-text">'+esc(e.learnSituation)+'</div></div>';
   if(e.learnCoping)h+='<div class="detail-section"><div class="detail-label">Learned (coping)</div><div class="detail-text">'+esc(e.learnCoping)+'</div></div>';
   if(e.nextExperiment)h+='<div class="detail-section"><div class="detail-label">Next experiment</div><div class="detail-text">'+esc(e.nextExperiment)+'</div></div>';
@@ -421,6 +470,8 @@ function renderInsights(){
   var ab=Math.round(sb/t),aa=Math.round(sa/t),adb=Math.round(db2/t),ada=Math.round(da/t),pct=Math.round((pw/t)*100);
   var h='<div class="insight-card" style="text-align:center"><div class="big-number">'+pct+'%</div><div class="big-label">of your brain\'s predictions were <strong>wrong</strong></div></div>';
   h+='<div class="insight-grid"><div class="insight-stat"><div class="num color-accent">'+t+'</div><div class="lbl">Experiments</div></div><div class="insight-stat"><div class="num color-green">−'+(ab-aa)+'</div><div class="lbl">Avg Belief Drop</div></div><div class="insight-stat"><div class="num color-blue">−'+(adb-ada)+'</div><div class="lbl">Avg Distress Drop</div></div><div class="insight-stat"><div class="num color-orange">'+pw+'/'+t+'</div><div class="lbl">Predictions Wrong</div></div></div>';
+  var bi=-1,bd0=0;for(var q=0;q<t;q++){var d0=all[q].beliefBefore-all[q].beliefAfter;if(d0>bd0){bd0=d0;bi=q;}}
+  if(bi>=0)h+='<div class="insight-card"><div class="insight-title">🎯 Biggest prediction bust</div><div class="detail-text" style="margin-top:6px">'+esc(all[bi].situation||'Untitled')+'</div><div class="learn-row"><span class="learn-chip good">Belief −'+bd0+'</span></div></div>';
   h+='<div class="insight-card" style="margin-top:10px"><div class="insight-title">📉 Belief After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="bChart"></canvas></div></div>';
   h+='<div class="insight-card"><div class="insight-title">📉 Distress After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="dChart"></canvas></div></div>';
   h+='<div class="sync-panel"><div class="sync-panel-title">🔗 Sync Settings</div><div class="sync-key-box"><div class="label">Your Sync Key</div><div class="key">'+(syncKey||'none')+'</div></div><div class="sync-actions"><button class="sync-action-btn" onclick="cpKey()">📋 Copy Key</button><button class="sync-action-btn" onclick="manualSync()">🔄 Sync Now</button><button class="sync-action-btn" onclick="expData()">📤 Export</button><button class="sync-action-btn" onclick="impData()">📦 Import</button></div></div>';
