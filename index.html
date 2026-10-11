@@ -109,6 +109,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .learn-chip{font-size:12px;font-weight:700;padding:5px 10px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
 .learn-chip.good{color:var(--green2);border-color:var(--green)}
 .busted{display:inline-block;font-size:11px;font-weight:800;color:#0f0f13;background:var(--green2);border-radius:12px;padding:3px 9px;margin-left:8px;vertical-align:middle}
+.busted-row{margin:4px 0 1px}
+.busted-row .busted{margin-left:0}
 .draft-banner{background:linear-gradient(135deg,#3a2a18,#201a15);border:1.5px solid var(--accent);border-radius:var(--radius);padding:14px;margin-bottom:12px}
 .db-text{font-size:13px;line-height:1.5;margin-bottom:10px}
 .db-actions{display:flex;gap:8px}
@@ -467,7 +469,7 @@ function renderHistory(){
   var h='';for(var i=0;i<all.length;i++){var e=all[i],n=all.length-i;
   h+='<div class="history-card" onclick="toggleDet('+e.id+')">';
   var bb=(e.beliefBefore==null?0:e.beliefBefore),ba=(e.beliefAfter==null?0:e.beliefAfter),dbf=(e.distressBefore==null?0:e.distressBefore),daf=(e.distressAfter==null?0:e.distressAfter),busted=ba<bb,learn=bb-ba,learnD=dbf-daf;
-  h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+(busted?'<span class="busted">🎯 busted</span>':'')+'</div><div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
+  h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+'</div>'+(busted?'<div class="busted-row"><span class="busted">🎯 busted</span></div>':'')+'<div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
   h+='<div class="history-card-body"><div class="history-metric"><div class="history-metric-label">Belief</div><div class="history-metric-values"><span class="val-before">'+e.beliefBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.beliefAfter+'</span></div></div><div class="history-metric"><div class="history-metric-label">Distress</div><div class="history-metric-values"><span class="val-before">'+e.distressBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.distressAfter+'</span></div></div><div class="learn-row"><span class="learn-chip'+(learn>0?' good':'')+'">Belief '+(learn>0?'−'+learn:''+learn)+'</span><span class="learn-chip'+(learnD>0?' good':'')+'">Distress '+(learnD>0?'−'+learnD:''+learnD)+'</span></div></div>';
   h+='<div class="history-detail" id="det-'+e.id+'">';
   if(e.motivation)h+='<div class="detail-section"><div class="detail-label">Cost of avoiding</div><div class="detail-text">'+esc(e.motivation)+'</div></div>';
