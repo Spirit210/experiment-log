@@ -127,6 +127,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .rung-log{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0}
 .ladder-head{font-size:15px;font-weight:800;margin:4px 0 2px}
 .ladder-sub{font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.5}
+/* ---- motion ---- */
+.view.active{animation:viewIn .28s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.history-card{animation:cardIn .4s ease backwards}
+.rung{animation:cardIn .35s ease backwards}
+.insight-card,.insight-stat{animation:cardIn .4s ease backwards}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.99)}to{opacity:1;transform:none}}
+.tab-btn:active{transform:scale(.93)}
+.tab-btn svg{vertical-align:-2px;margin-right:3px}
+.db-btn:active{transform:scale(.96)}
+.rung-log:active{transform:scale(.92)}
+.history-delete:active{transform:scale(.88)}
+.phase-toggle:active{transform:scale(.98)}
+.search-wrap{padding:0 0 12px}
+.search-input{width:100%;padding:12px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:14px;font-family:inherit;outline:none}
+.search-input:focus{border-color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 .action-tips{display:flex;flex-direction:column;gap:8px}
 .action-tip{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);line-height:1.45}
@@ -165,8 +182,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .val-before{color:var(--red)}.val-arrow{color:var(--text3);font-size:12px}.val-after{color:var(--green)}
 .history-delete{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px;border-radius:6px;transition:all .15s}
 .history-delete:hover{color:var(--red);background:rgba(225,112,85,.1)}
-.history-detail{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
-.history-detail.open{display:block}
+.history-detail{display:block;max-height:0;overflow:hidden;padding:0 14px;border-top:none;transition:max-height .32s ease,padding .32s ease}
+.history-detail.open{max-height:1000px;padding:0 14px 14px;border-top:1px solid var(--border)}
 .detail-section{margin-top:10px}
 .detail-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700;margin-bottom:3px}
 .detail-text{font-size:13px;color:var(--text2);line-height:1.5}
@@ -233,10 +250,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     </div>
   </div>
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="new">＋ New</button>
-    <button class="tab-btn" data-tab="history">📋 History</button>
-    <button class="tab-btn" data-tab="insights">📊 Insights</button>
-    <button class="tab-btn" data-tab="ladder">🪜 Ladder</button>
+    <button class="tab-btn active" data-tab="new"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New</button>
+    <button class="tab-btn" data-tab="history"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="5" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="5" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg> History</button>
+    <button class="tab-btn" data-tab="insights"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 20v-7M12 20V5M17 20v-10"/></svg> Insights</button>
+    <button class="tab-btn" data-tab="ladder"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20h3v-4h4v-4h4V8h3V4"/></svg> Ladder</button>
   </div>
 </div>
 
@@ -379,7 +396,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   </div>
 </div>
 
-<div class="view" id="view-history"><div id="historyList"></div></div>
+<div class="view" id="view-history"><div class="search-wrap"><input id="histSearch" class="search-input" placeholder="🔍 Search experiments..." oninput="renderHistory()"></div><div id="historyList"></div></div>
 <div class="view" id="view-insights"><div id="insightsContent"></div></div>
 <div class="view" id="view-ladder"><div id="ladderContent"></div></div>
 </div>
@@ -426,7 +443,7 @@ function mergeExps(a,b){var m=a.slice(),ids={};for(var i=0;i<a.length;i++)ids[a[
 function manualSync(){if(!firebaseReady){showToast('☁️ Cloud not configured');return;}setSync('syncing');pullFromCloud().then(function(){setSync('online');showToast('✅ Synced!');updateCount();}).catch(function(){setSync('offline');showToast('❌ Sync failed');});}
 
 var tabs=document.querySelectorAll('.tab-btn');
-for(var i=0;i<tabs.length;i++)tabs[i].addEventListener('click',function(){for(var j=0;j<tabs.length;j++)tabs[j].classList.remove('active');var vs=document.querySelectorAll('.view');for(var j=0;j<vs.length;j++)vs[j].classList.remove('active');this.classList.add('active');document.getElementById('view-'+this.getAttribute('data-tab')).classList.add('active');if(this.getAttribute('data-tab')==='history')renderHistory();if(this.getAttribute('data-tab')==='insights')renderInsights();if(this.getAttribute('data-tab')==='ladder')renderLadder();});
+for(var i=0;i<tabs.length;i++)tabs[i].addEventListener('click',function(){buzz(10);for(var j=0;j<tabs.length;j++)tabs[j].classList.remove('active');var vs=document.querySelectorAll('.view');for(var j=0;j<vs.length;j++)vs[j].classList.remove('active');this.classList.add('active');document.getElementById('view-'+this.getAttribute('data-tab')).classList.add('active');if(this.getAttribute('data-tab')==='history')renderHistory();if(this.getAttribute('data-tab')==='insights')renderInsights();if(this.getAttribute('data-tab')==='ladder')renderLadder();});
 
 function revealPhase3(){document.getElementById('phase3wrapper').classList.remove('hidden');document.getElementById('showPhase3').classList.add('hidden');document.getElementById('phase3wrapper').scrollIntoView({behavior:'smooth',block:'start'});}
 
@@ -444,9 +461,10 @@ function saveExperiment(){
   var ch=document.querySelectorAll('.crutch-check');for(var i=0;i<ch.length;i++)ch[i].classList.remove('checked');
   var ups=document.querySelectorAll('.chip.used');for(var ui=0;ui<ups.length;ui++)ups[ui].classList.remove('used');
   document.getElementById('phase3wrapper').classList.add('hidden');document.getElementById('showPhase3').classList.remove('hidden');
+  var wasBusted=e.beliefAfter<e.beliefBefore;if(wasBusted){boom();buzz([40,60,40]);}else buzz(25);
   showToast('✅ Experiment #'+all.length+' saved!');window.scrollTo({top:0,behavior:'smooth'});
 }
-function fillCrutch(t,el){var ids=['crutch1','crutch2','crutch3'];for(var i=0;i<ids.length;i++){var inp=document.getElementById(ids[i]);if(inp&&!inp.value.trim()){inp.value=t;var chk=inp.parentElement.querySelector('.crutch-check');if(chk)chk.classList.add('checked');if(el)el.classList.add('used');saveDraft();return;}}showToast('All crutch slots are full');}
+function fillCrutch(t,el){buzz(10);var ids=['crutch1','crutch2','crutch3'];for(var i=0;i<ids.length;i++){var inp=document.getElementById(ids[i]);if(inp&&!inp.value.trim()){inp.value=t;var chk=inp.parentElement.querySelector('.crutch-check');if(chk)chk.classList.add('checked');if(el)el.classList.add('used');saveDraft();return;}}showToast('All crutch slots are full');}
 function saveDraft(){try{var d={savedAt:Date.now(),motivation:gv('motivation'),situation:gv('situation'),prediction:gv('prediction'),beliefBefore:gi('beliefBefore'),distressBefore:gi('distressBefore'),crutch1:gv('crutch1'),crutch2:gv('crutch2'),crutch3:gv('crutch3')};if(d.situation||d.prediction)localStorage.setItem('ilDraft',JSON.stringify(d));else localStorage.removeItem('ilDraft');}catch(e){}}
 function clearDraft(){try{localStorage.removeItem('ilDraft');}catch(e){}}
 function getDraft(){try{var d=JSON.parse(localStorage.getItem('ilDraft')||'null');if(d&&d.savedAt&&(Date.now()-d.savedAt)<48*3600*1000&&(d.situation||d.prediction))return d;}catch(e){}return null;}
@@ -455,19 +473,23 @@ function continueDraft(){var d=getDraft();if(!d)return;var m={motivation:'motiva
 function discardDraft(){clearDraft();var b=document.getElementById('draftBanner');if(b)b.classList.add('hidden');showToast('Draft discarded');}
 var LADDER=['Make eye contact and smile at a cashier or server','Ask a cashier or barista one genuine question beyond the transaction','Give someone a specific, sincere compliment','Make 2 minutes of small talk with a neighbor or coworker','Ask a follow-up question — then truly listen (notice 3 details about them)','Share a small opinion and leave it there, no softening','Pause 3 full seconds mid-conversation instead of filling the silence','Tell a 60-second story about your day without apologizing for it','Start a conversation with someone you see regularly but never talk to'];
 function getLadder(){try{var l=JSON.parse(localStorage.getItem('ilLadder')||'[]');return Array.isArray(l)?l:[];}catch(e){return[];}}
-function toggleRung(i){var l=getLadder(),x=l.indexOf(i);if(x>=0)l.splice(x,1);else l.push(i);try{localStorage.setItem('ilLadder',JSON.stringify(l));}catch(e){}renderLadder();}
-function renderLadder(){var l=getLadder(),c=document.getElementById('ladderContent');if(!c)return;var pct=Math.round(l.length/LADDER.length*100);var h='<div class="ladder-head">🪜 Conversation Ladder</div><div class="ladder-sub">One rung at a time, easiest first. Tap a rung when you\'ve done it — or hit ▶ to log it as an experiment.</div>';h+='<div class="ladder-progress"><div style="width:'+pct+'%"></div></div>';for(var i=0;i<LADDER.length;i++){var done=l.indexOf(i)>=0;h+='<div class="rung'+(done?' done':'')+'" onclick="toggleRung('+i+')"><div class="rung-num">'+(done?'✓':(i+1))+'</div><div class="rung-text">'+esc(LADDER[i])+'</div><button class="rung-log" onclick="event.stopPropagation();startLadderExperiment('+i+')">▶ Log</button></div>';}c.innerHTML=h;}
+function toggleRung(i){buzz(15);var l=getLadder(),x=l.indexOf(i);if(x>=0)l.splice(x,1);else l.push(i);try{localStorage.setItem('ilLadder',JSON.stringify(l));}catch(e){}renderLadder();}
+function renderLadder(){var l=getLadder(),c=document.getElementById('ladderContent');if(!c)return;var pct=Math.round(l.length/LADDER.length*100);var h='<div class="ladder-head">🪜 Conversation Ladder</div><div class="ladder-sub">One rung at a time, easiest first. Tap a rung when you\'ve done it — or hit ▶ to log it as an experiment.</div>';h+='<div class="ladder-progress"><div style="width:'+pct+'%"></div></div>';for(var i=0;i<LADDER.length;i++){var done=l.indexOf(i)>=0;h+='<div class="rung'+(done?' done':'')+'" style="animation-delay:'+(i*0.05)+'s" onclick="toggleRung('+i+')"><div class="rung-num">'+(done?'✓':(i+1))+'</div><div class="rung-text">'+esc(LADDER[i])+'</div><button class="rung-log" onclick="event.stopPropagation();startLadderExperiment('+i+')">▶ Log</button></div>';}c.innerHTML=h;}
 function startLadderExperiment(i){var s=document.getElementById('situation');if(s)s.value=LADDER[i];saveDraft();var tb=document.querySelector('.tab-btn[data-tab="new"]');if(tb)tb.click();window.scrollTo({top:0,behavior:'smooth'});showToast('🪜 Rung loaded — fill in your prediction');}
+function buzz(p){try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){}}
+function boom(){try{var c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';document.body.appendChild(c);var x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;var P=[],cols=['#d99a3d','#ecbd6d','#a9c47e','#f2e9da','#e17055'];for(var i=0;i<90;i++)P.push({x:innerWidth/2,y:innerHeight*0.35,vx:(Math.random()-0.5)*14,vy:Math.random()*-11-3,s:Math.random()*7+4,r:Math.random()*Math.PI,vr:(Math.random()-0.5)*0.3,c:cols[i%cols.length],l:1});(function fr(){x.clearRect(0,0,c.width,c.height);var alive=false;for(var j=0;j<P.length;j++){var q=P[j];q.vy+=0.35;q.x+=q.vx;q.y+=q.vy;q.r+=q.vr;q.l-=0.008;if(q.l<=0||q.y>c.height+20)continue;alive=true;x.save();x.globalAlpha=Math.max(0,q.l);x.translate(q.x,q.y);x.rotate(q.r);x.fillStyle=q.c;x.fillRect(-q.s/2,-q.s/2,q.s,q.s*0.6);x.restore();}if(alive)requestAnimationFrame(fr);else c.remove();})();}catch(e){}}
+function countUps(){var els=document.querySelectorAll('[data-count]');for(var i=0;i<els.length;i++)(function(el){var target=parseInt(el.getAttribute('data-count'),10),pre=el.getAttribute('data-prefix')||'',suf=el.getAttribute('data-suffix')||'';if(isNaN(target)||target<=0)return;var t0=Date.now(),dur=700;(function fr(){var p=Math.min(1,(Date.now()-t0)/dur),ez=1-Math.pow(1-p,3);el.textContent=pre+Math.round(target*ez)+suf;if(p<1)requestAnimationFrame(fr);})();})(els[i]);}
 function gv(id){return document.getElementById(id).value.trim();}
 function gi(id){return parseInt(document.getElementById(id).value);}
 
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
 
 function renderHistory(){
-  var all=getExps().slice().reverse(),c=document.getElementById('historyList');
-  if(!all.length){c.innerHTML='<div class="history-empty"><div class="icon">📭</div><p>No experiments yet.<br>Complete your first one.</p></div>';return;}
+  var all=getExps().slice().reverse(),c=document.getElementById('historyList'),q=((document.getElementById('histSearch')||{}).value||'').toLowerCase().trim();
+  if(q)all=all.filter(function(e){return ((e.situation||'')+' '+(e.prediction||'')+' '+(e.outcome||'')+' '+(e.learnSituation||'')+' '+(e.learnCoping||'')).toLowerCase().indexOf(q)>=0;});
+  if(!all.length){c.innerHTML='<div class="history-empty"><div class="icon">📭</div><p>'+(q?'No experiments match your search.':'No experiments yet.<br>Complete your first one.')+'</p></div>';return;}
   var h='';for(var i=0;i<all.length;i++){var e=all[i],n=all.length-i;
-  h+='<div class="history-card" onclick="toggleDet('+e.id+')">';
+  h+='<div class="history-card" style="animation-delay:'+Math.min(i*0.06,0.42)+'s" onclick="toggleDet('+e.id+')">';
   var bb=(e.beliefBefore==null?0:e.beliefBefore),ba=(e.beliefAfter==null?0:e.beliefAfter),dbf=(e.distressBefore==null?0:e.distressBefore),daf=(e.distressAfter==null?0:e.distressAfter),busted=ba<bb,learn=bb-ba,learnD=dbf-daf;
   h+='<div class="history-card-header"><div class="history-num">'+n+'</div><div class="history-meta"><div class="history-situation">'+esc(e.situation||'Untitled')+'</div>'+(busted?'<div class="busted-row"><span class="busted">🎯 busted</span></div>':'')+'<div class="history-date">'+e.date+' · '+e.time+'</div></div><button class="history-delete" onclick="event.stopPropagation();delExp('+e.id+')">×</button></div>';
   h+='<div class="history-card-body"><div class="history-metric"><div class="history-metric-label">Belief</div><div class="history-metric-values"><span class="val-before">'+e.beliefBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.beliefAfter+'</span></div></div><div class="history-metric"><div class="history-metric-label">Distress</div><div class="history-metric-values"><span class="val-before">'+e.distressBefore+'</span><span class="val-arrow">→</span><span class="val-after">'+e.distressAfter+'</span></div></div><div class="learn-row"><span class="learn-chip'+(learn>0?' good':'')+'">Belief '+(learn>0?'−'+learn:''+learn)+'</span><span class="learn-chip'+(learnD>0?' good':'')+'">Distress '+(learnD>0?'−'+learnD:''+learnD)+'</span></div></div>';
@@ -493,17 +515,17 @@ function renderInsights(){
   var t=all.length,sb=0,sa=0,db2=0,da=0,pw=0,dc0=0;
   for(var i=0;i<t;i++){sb+=all[i].beliefBefore;sa+=all[i].beliefAfter;db2+=all[i].distressBefore;da+=all[i].distressAfter;if(all[i].beliefAfter<all[i].beliefBefore)pw++;dc0+=(all[i].dropped||0);}
   var ab=Math.round(sb/t),aa=Math.round(sa/t),adb=Math.round(db2/t),ada=Math.round(da/t),pct=Math.round((pw/t)*100);
-  var h='<div class="insight-card" style="text-align:center"><div class="big-number">'+pct+'%</div><div class="big-label">of your brain\'s predictions were <strong>wrong</strong></div></div>';
-  h+='<div class="insight-grid"><div class="insight-stat"><div class="num color-accent">'+t+'</div><div class="lbl">Experiments</div></div><div class="insight-stat"><div class="num color-green">−'+(ab-aa)+'</div><div class="lbl">Avg Belief Drop</div></div><div class="insight-stat"><div class="num color-blue">−'+(adb-ada)+'</div><div class="lbl">Avg Distress Drop</div></div><div class="insight-stat"><div class="num color-orange">'+pw+'/'+t+'</div><div class="lbl">Predictions Wrong</div></div><div class="insight-stat"><div class="num color-green">'+dc0+'</div><div class="lbl">Crutches Dropped</div></div></div>';
+  var h='<div class="insight-card" style="text-align:center"><div class="big-number" data-count="'+pct+'" data-suffix="%">'+pct+'%</div><div class="big-label">of your brain\'s predictions were <strong>wrong</strong></div></div>';
+  h+='<div class="insight-grid"><div class="insight-stat"><div class="num color-accent" data-count="'+t+'">'+t+'</div><div class="lbl">Experiments</div></div><div class="insight-stat"><div class="num color-green" data-count="'+(ab-aa)+'" data-prefix="−">−'+(ab-aa)+'</div><div class="lbl">Avg Belief Drop</div></div><div class="insight-stat"><div class="num color-blue" data-count="'+(adb-ada)+'" data-prefix="−">−'+(adb-ada)+'</div><div class="lbl">Avg Distress Drop</div></div><div class="insight-stat"><div class="num color-orange">'+pw+'/'+t+'</div><div class="lbl">Predictions Wrong</div></div><div class="insight-stat"><div class="num color-green" data-count="'+dc0+'">'+dc0+'</div><div class="lbl">Crutches Dropped</div></div></div>';
   var bi=-1,bd0=0;for(var q=0;q<t;q++){var d0=all[q].beliefBefore-all[q].beliefAfter;if(d0>bd0){bd0=d0;bi=q;}}
-  if(bi>=0)h+='<div class="insight-card"><div class="insight-title">🎯 Biggest prediction bust</div><div class="detail-text" style="margin-top:6px">'+esc(all[bi].situation||'Untitled')+'</div><div class="learn-row"><span class="learn-chip good">Belief −'+bd0+'</span></div></div>';
+  if(bi>=0)h+='<div class="insight-card"><div class="insight-title">🎯 Biggest prediction bust</div><div class="detail-text" style="margin-top:6px">'+esc(all[bi].situation||'Untitled')+'</div><div class="learn-row"><span class="learn-chip good" data-count="'+bd0+'" data-prefix="−">Belief −'+bd0+'</span></div></div>';
   h+='<div class="insight-card" style="margin-top:10px"><div class="insight-title">📉 Belief After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="bChart"></canvas></div></div>';
   h+='<div class="insight-card"><div class="insight-title">📉 Distress After Each Experiment</div><div class="chart-container"><canvas class="chart-canvas" id="dChart"></canvas></div></div>';
   h+='<div class="sync-panel"><div class="sync-panel-title">🔗 Sync Settings</div><div class="sync-key-box"><div class="label">Your Sync Key</div><div class="key">'+(syncKey||'none')+'</div></div><div class="sync-actions"><button class="sync-action-btn" onclick="cpKey()">📋 Copy Key</button><button class="sync-action-btn" onclick="manualSync()">🔄 Sync Now</button><button class="sync-action-btn" onclick="expData()">📤 Export</button><button class="sync-action-btn" onclick="impData()">📦 Import</button></div></div>';
   h+='<div class="danger-zone"><button class="clear-btn" onclick="rstKey()">🔑 Change Key</button><button class="clear-btn" onclick="clrAll()">🗑️ Clear Data</button></div>';
   c.innerHTML=h;
   var bp=[],dp=[];for(var i=0;i<all.length;i++){bp.push(all[i].beliefAfter);dp.push(all[i].distressAfter);}
-  drw('bChart',bp,'#ecbd6d','#d99a3d');drw('dChart',dp,'#a9c47e','#7a9b5a');
+  drw('bChart',bp,'#ecbd6d','#d99a3d');drw('dChart',dp,'#a9c47e','#7a9b5a');countUps();
 }
 
 function drw(id,data,cL,cD){
